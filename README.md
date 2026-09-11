@@ -195,19 +195,19 @@ _Add caption explaining the schematic_
 
 ### Build Steps
 
-![Testing Components](./Testing%20Components.jpeg)
+![Testing Components](./demo/Testing%20Components.jpeg)
 * **Step 1: Breadboard Prototyping & Testing** — Wiring and verifying pin connections between the ESP32, OLED, touch switch, and MPU-6050 sensor.
 
-![Hardcoded Random Outputs](./Hardcoded%20Random%20Outputs.jpeg)
+![Hardcoded Random Outputs](./demo/Hardcoded%20Random%20Outputs.jpeg)
 * **Step 2: Display Bring-up** — Rendering hardcoded sample strings to verify font libraries and basic OLED driver setup.
 
-![Hardcoded Random Outputs 2](./Hardcoded%20Random%20Outputs2.jpeg)
+![Hardcoded Random Outputs 2](./demo/Hardcoded%20Random%20Outputs2.jpeg)
 * **Step 3: Multi-screen & UI Layout Testing** — Validating dynamic text layout, line breaks, and UI refresh rates with simulated data.
 
-![LLM Test Rendering Problem](./LLM%20test%20rendering%20problem.jpeg)
+![LLM Test Rendering Problem](./demo/LLM%20test%20rendering%20problem.jpeg)
 * **Step 4: Output Rendering Debugging** — Diagnosing text clipping, buffer overflows, and screen refresh glitches with incoming streams.
 
-![First LLM Output (Gibberish)](./First%20LLM%20output(gibberish).jpeg)
+![First LLM Output (Gibberish)](./demo/First%20LLM%20output(gibberish).jpeg)
 * **Step 5: API & Parsing Debugging** — Resolving JSON parsing, baud rate mismatches, and character encoding issues from the LLM endpoint.
 
 ![Final](Add photo of final product here)
