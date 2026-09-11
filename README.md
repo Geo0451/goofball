@@ -94,6 +94,7 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
    ```
 
 4. **Allow Port 11434 Through Fedora Firewall:**
+   (Note that zone may not be 'trusted' in all systems. Use 'sudo firewall-cmd --get-active-zones' to find out which to use.)
 
    ```bash
    sudo firewall-cmd --zone=trusted --add-port=11434/tcp --permanent
@@ -106,6 +107,7 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
      - `Adafruit SSD1306`
      - `Adafruit GFX Library`
      - `ArduinoJson` (by Benoit Blanchon)
+   - Use 'cldfinal.ino' for final version, older iterations can be found in 'iterations' folder
    - Update `WIFI_SSID`, `WIFI_PASS`, and `OLLAMA_URL` in the `.ino` file with your hotspot and host PC details.
    - Compile and flash to your ESP32 board.
 
