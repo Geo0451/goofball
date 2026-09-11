@@ -13,7 +13,7 @@
 
 ### Project Description
 
-Magic 8-Ball w/ LLM stuffs
+Magic 8-Ball w/ local LLMs.
 
 ### The Problem (that doesn't exist)
 
@@ -131,84 +131,99 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
    - Tap the **TTP223 Touch Pad** to **ARM** the device (the top-right eye icon will open).
    - **Shake** the hardware to generate a new sarcastic AI fortune.
 
-# Screenshots (Add at least 3)
+# Screenshots
 
-![Screenshot1](Add screenshot 1 here with proper name)
-_Add caption explaining what this shows_
+![Screenshot1](./screenshots/stateless.png)
+_API Code_
 
-![Screenshot2](Add screenshot 2 here with proper name)
-_Add caption explaining what this shows_
+![Screenshot2](./screenshots/sysprompt.png)
+_System prompts_
 
-![Screenshot3](Add screenshot 3 here with proper name)
-_Add caption explaining what this shows_
+![Screenshot3](./screenshots/timeline.png)
+_Git timeline_
 
 # Diagrams
 
-```text
+```
 [ ESP32 Handheld Device ]
   │
-  ├─► TTP223 Touch Pin (GPIO 27) ────► Toggles Armed/Disarmed state
-  ├─► MPU6050 (I2C 0x68) ─────────────► Calculates total G-force (Threshold > 1.7G)
+  ├─► TTP223 Touch Pin (GPIO 27) ────► Toggles Arm State (Long Hold) / Switches Personality (Short Tap)[cite: 1]
+  ├─► MPU6050 (I2C 0x68) ─────────────► Calculates total G-force (Threshold > 2.0G)[cite: 1]
   │                                           │
   │                                      (Shake Event Triggered)
   │                                           │
-  ├─► SSD1306 OLED (I2C 0x3C) ◄───────── Plays 8-Ball Loading Animation
+  ├─► SSD1306 OLED (I2C 0x3C) ◄───────── Plays 8-Ball Bounce/Zoom & Eye Animations[cite: 1]
   │                                           │
-  └─► HTTP Client (WIFI_STA) ───────────────┼─► POST http://<HOST_IP>:11434/api/generate
-                                              │   Payload: JSON { model, system prompt, stream: false }
+  └─► FreeRTOS Task (apiTaskHandle) ────────┼─► Async fetch to prevent UI blocking[cite: 1]
+      └─► HTTP Client (WIFI_STA) ───────────┼─► POST http://10.42.0.1:11434/api/generate[cite: 1]
+                                              │   Payload: JSON { model, system, prompt, stream: false, options }[cite: 1]
                                               │
                                               ▼
                                      [ Local Ollama Instance ]
-                                     (Model: qwen2.5:3b-instruct)
+                                     (Model: qwen2.5:3b-instruct)[cite: 1]
                                               │
   ┌─◄ Raw JSON String Response ───────────────┘
   │
-  ├─► ArduinoJson ────────────────────► Parses response payload
-  ├─► Text Renderer ──────────────────► Strips quotes, sanitizes ASCII, wraps text
-  └─► SSD1306 OLED Display ───────────► Renders final text output
+  ├─► ArduinoJson ────────────────────► Parses response payload[cite: 1]
+  ├─► Text Renderer ──────────────────► Strips quotes, sanitizes ASCII, wraps text[cite: 1]
+  └─► SSD1306 OLED Display ───────────► Renders final text output & UI States[cite: 1]
 ```
 
 # Schematic & Circuit
 
-![Circuit](Add your circuit diagram here)
-_Add caption explaining connections_
-
-![Schematic](Add your schematic diagram here)
-_Add caption explaining the schematic_
-
-# Build Photos
+```
+ESP32-WROOM Dev Kit
+   │
+   ├─► TTP223 Touch Pin (I/O Pin) ─────► D27 (GPIO)
+   │
+   │
+   ├─► MPU6050 (6-axis Sensor)
+   │     ├─► SDA Pin ─────────────────► D21 (GPIO)
+   │     └─► SCL Pin ─────────────────► D22 (GPIO)
+   │
+   │
+   └─► SSD1306 OLED (0.96")
+         ├─► SDA Pin ─────────────────► D21 (GPIO)
+         └─► SCL Pin ─────────────────► D22 (GPIO)
+```
 
 # Build Photos
 
 ### Components
+
 ![ESP32-WROOM](./components/ESP32-WROOM.jpg)
 ![MPU 6050](./components/MPU%206050.jpg)
 ![OLED SCREEN](./components/OLED%20SCREEN.jpg)
 ![TTP223](./components/TTP223.jpg)
 
-* **ESP32-WROOM**: Microcontroller module handling logic and network requests.
-* **MPU-6050**: 6-axis motion-tracking sensor (gyroscope and accelerometer).
-* **OLED Screen**: Display module used for showing prompt responses and UI states.
-* **TTP223**: Capacitive touch sensor module used as an input switch.
+- **ESP32-WROOM**: Microcontroller module handling logic and network requests.
+- **MPU-6050**: 6-axis motion-tracking sensor (gyroscope and accelerometer).
+- **OLED Screen**: Display module used for showing prompt responses and UI states.
+- **TTP223**: Capacitive touch sensor module used as an input switch.
 
 ---
 
 ### Build Steps
 
 ![Testing Components](./demo/Testing%20Components.jpeg)
-* **Step 1: Breadboard Prototyping & Testing** — Wiring and verifying pin connections between the ESP32, OLED, touch switch, and MPU-6050 sensor.
+
+- **Step 1: Breadboard Prototyping & Testing** — Wiring and verifying pin connections between the ESP32, OLED, touch switch, and MPU-6050 sensor.
 
 ![Hardcoded Random Outputs](./demo/Hardcoded%20Random%20Outputs.jpeg)
-* **Step 2: Display Bring-up** — Rendering hardcoded sample strings to verify font libraries and basic OLED driver setup.
+
+- **Step 2: Display Bring-up** — Rendering hardcoded sample strings to verify font libraries and basic OLED driver setup.
 
 ![Hardcoded Random Outputs 2](./demo/Hardcoded%20Random%20Outputs2.jpeg)
-* **Step 3: Multi-screen & UI Layout Testing** — Validating dynamic text layout, line breaks, and UI refresh rates with simulated data.
+
+- **Step 3: Multi-screen & UI Layout Testing** — Validating dynamic text layout, line breaks, and UI refresh rates with simulated data.
 
 ![LLM Test Rendering Problem](./demo/LLM%20test%20rendering%20problem.jpeg)
-* **Step 4: Output Rendering Debugging** — Diagnosing text clipping, buffer overflows, and screen refresh glitches with incoming streams.
 
-![First LLM Output (Gibberish)](./demo/First%20LLM%20output(gibberish).jpeg)
-* **Step 5: API & Parsing Debugging** — Resolving JSON parsing, baud rate mismatches, and character encoding issues from the LLM endpoint.
+- **Step 4: Output Rendering Debugging** — Diagnosing text clipping, buffer overflows, and screen refresh glitches with incoming streams.
+
+![First LLM Output (Gibberish)](<./demo/First%20LLM%20output(gibberish).jpeg>)
+
+- **Step 5: API & Parsing Debugging** — Resolving JSON parsing, baud rate mismatches, and character encoding issues from the LLM endpoint.
 
 ![Final](Add photo of final product here)
 _Explain the final build_
