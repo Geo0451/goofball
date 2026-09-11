@@ -21,8 +21,7 @@ The lack of certainty in life.
 
 ### The Solution (that nobody asked for)
 
-![example](./example.jpg)
-
+![example](./demo/example.jpg)
 
 ## Technical Details
 
@@ -36,7 +35,7 @@ For Software:
 
 For Hardware:
 
-- Breadboard, ESP32-WROOM Dev Kit, MPU6050 IMU Sensor, TTP223 Digital Touch Sensor, 0.96 Inch OLED Display Module SPI/I2C 4pin 
+- Breadboard, ESP32-WROOM Dev Kit, MPU6050 IMU Sensor, TTP223 Digital Touch Sensor, 0.96 Inch OLED Display Module SPI/I2C 4pin
 - **Breadboard:** 830 tie-points, 0.1" pitch\
    **ESP32-WROOM:** 240MHz dual-core, Wi-Fi/BLE, 4MB Flash\
    **MPU6050:** 6-axis gyro/accelerometer, 16-bit ADC, I2C\
@@ -67,30 +66,35 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
    - The response payload is extracted and stripped of dynamic formatting artifacts (double quotes and non-ASCII characters).
    - The sanitized string passes into a custom word-wrapping function that calculates precise pixel offsets per word (`length * 6px`) to prevent visual stacking glitches on the SSD1306 display.
 
-
 ### Installation
 
 1. **Install Ollama on Host Machine (Fedora/Linux):**
+
    ```bash
    curl -fsSL https://ollama.com/install.sh | sh
    ```
 
 2. **Pull the Qwen LLM Model:**
+
    ```bash
    ollama pull qwen2.5:3b-instruct
    ```
 
 3. **Configure Ollama for External Network Binding:**
+
    ```bash
    sudo systemctl edit ollama.service
    ```
+
    Add the following block under the `[Service]` section:
+
    ```ini
    [Service]
    Environment="OLLAMA_HOST=0.0.0.0"
    ```
 
 4. **Allow Port 11434 Through Fedora Firewall:**
+
    ```bash
    sudo firewall-cmd --zone=trusted --add-port=11434/tcp --permanent
    sudo firewall-cmd --reload
@@ -105,20 +109,22 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
    - Update `WIFI_SSID`, `WIFI_PASS`, and `OLLAMA_URL` in the `.ino` file with your hotspot and host PC details.
    - Compile and flash to your ESP32 board.
 
-
 ### Run
 
 1. **Restart Ollama Service:**
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl restart ollama.service
    ```
 
 2. **Verify Host Network Binding:**
+
    ```bash
    ss -tulpn | grep 11434
    ```
-   *(Ensure output shows `*:11434` or `0.0.0.0:11434`)*
+
+   _(Ensure output shows `_:11434`or`0.0.0.0:11434`)\*
 
 3. **Power On ESP32 Device:**
    - Connect ESP32 to power; it will automatically join the Wi-Fi hotspot.
@@ -137,7 +143,6 @@ _Add caption explaining what this shows_
 _Add caption explaining what this shows_
 
 # Diagrams
-
 
 ```text
 [ ESP32 Handheld Device ]
