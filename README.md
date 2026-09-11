@@ -9,15 +9,16 @@
 ### Team Members
 
 - Member 1: Geo K J - Sahrdaya College of Engineering and Technology
-- Member 2: Harikrishna O. R- Sahrdaya College of Engineering and Technology
+- Member 2: Harikrishna O R- Sahrdaya College of Engineering and Technology
 
 ### Project Description
 
-Magic 8-Ball w/ local LLMs.
+Magic 8-Ball w/ local LLMs and multiple selectable system prompts.
 
 ### The Problem (that doesn't exist)
 
-The lack of certainty in life.
+The lack of certainty in life.\
+So we built a Magic 8-ball that makes it worse.
 
 ### The Solution (that nobody asked for)
 
