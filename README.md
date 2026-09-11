@@ -13,14 +13,18 @@
 
 ### Project Description
 
-Magic 8-Ball w/ local LLMs and multiple selectable system prompts.
+Magic 8-Ball w/ local LLMs and multiple selectable system prompts. You roll the ball every time you shake the device.
 
 ### The Problem (that doesn't exist)
 
-The lack of certainty in life.\
-So we built a Magic 8-ball that makes it worse.
+The lack of certainty in life.
+
 
 ### The Solution (that nobody asked for)
+
+So we built a Magic 8-ball that makes it worse.
+
+
 
 ![example](./demo/example.jpg)
 
