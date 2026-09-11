@@ -19,12 +19,9 @@ Magic 8-Ball w/ local LLMs and multiple selectable system prompts. You roll the 
 
 The lack of certainty in life.
 
-
 ### The Solution (that nobody asked for)
 
 So we built a Magic 8-ball that makes it worse.
-
-
 
 ![example](./demo/example.jpg)
 
@@ -239,11 +236,16 @@ _Final Form_
 
 # Video
 
+The Final Product\
 [![Final Demo](https://img.youtube.com/vi/lXghuZ_7DCk/0.jpg)](https://www.youtube.com/watch?v=lXghuZ_7DCk)
 
 # Additional Demos
 
+Early iteration\
 [![YouTube Demo](https://img.youtube.com/vi/U24JJsOnAx4/0.jpg)](https://youtube.com/shorts/U24JJsOnAx4)
+
+One of the final prototypes\
+[![Final Demo](https://img.youtube.com/vi/LakuqUYYCOM&/0.jpg)](https://www.youtube.com/watch?v=LakuqUYYCOM&)
 
 ## Team Contributions
 
