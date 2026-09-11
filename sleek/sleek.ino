@@ -16,19 +16,20 @@ const char* OLLAMA_URL = "http://10.42.0.1:11434/api/generate";
 #define MPU_ADDR  0x68
 #define TOUCH_PIN 27
 
-#define SHAKE_THRESHOLD 1.7
+#define SHAKE_THRESHOLD 2.0
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 // --- NON-DISPLAY GLOBALS (Untouched) ---
 int16_t ax, ay, az;
-bool systemArmed = false;
+bool systemArmed = true;
 String currentFortune = "";
 
 // --- NEW UI & STATE GLOBALS ---
 enum AppState {
   STATE_STARTUP,
   STATE_IDLE,
+  STATE_SWITCHING_PERSONALITY,
   STATE_SHAKING_ZOOM_OUT,
   STATE_SHAKING_BOUNCE,
   STATE_SHAKING_ZOOM_IN,
@@ -42,8 +43,7 @@ unsigned long stateStartTime = 0;
 // Physics / Ball Variables
 float ballX = 32, ballY = 64;
 float ballVX = 0, ballVY = 0;
-float ballRadius = 64; 
-float ballRot = 0; // Fake rotation for the '8'
+float ballRadius = 32; 
 bool apiFetchComplete = false;
 TaskHandle_t apiTaskHandle;
 
@@ -53,20 +53,95 @@ unsigned long touchStartTime = 0;
 bool touchHandled = false;
 bool eyeTransitionOpening = true;
 
-// Personalities!
-const char* SYSTEM_PROMPTS[] = {
-  "You are a brutally honest, sarcastic, edgy Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Roast the user. 3. No quotes/emojis.",
-  "You are a toxic corporate middle-manager Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Use horrific corporate jargon/buzzwords to reject them. 3. No quotes/emojis.",
-  "You are a panicking doomsday prepper Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Relate everything to an upcoming mundane apocalypse. 3. No quotes/emojis.",
-  "You are an extremely brain-rotted Gen-Z Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Use excessive modern internet slang (skibidi, rizz, etc). 3. No quotes/emojis."
+// --- PERSONALITIES & CUSTOM BITMAPS ---
+struct Personality {
+  const char* nickname;
+  const char* prompt;
+  const unsigned char* bitmap;
 };
 
-// Eye Icon Bitmaps (8x8 pixels) - Kept for status icon
-const unsigned char PROGMEM eye_open_bmp[] = {
-  0b00000000, 0b00111100, 0b01000010, 0b01001010, 0b01000010, 0b00111100, 0b00000000, 0b00000000
+int currentPersonality = 0;
+int nextPersonality = 0;
+
+// 1. Adam (Edgy/Honest) - Pixel Art Skull
+const unsigned char PROGMEM adam_bmp[] = {
+  0x03, 0xff, 0xff, 0xc0, 0x0f, 0xff, 0xff, 0xf0, 0x1f, 0xff, 0xff, 0xf8, 0x3f, 0xff, 0xff, 0xfc,
+  0x7f, 0xff, 0xff, 0xfe, 0x7f, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xfe, 0x0f, 0xf0, 0x7f,
+  0xfc, 0x07, 0xe0, 0x3f, 0xf8, 0x07, 0xe0, 0x1f, 0xf8, 0x07, 0xe0, 0x1f, 0xf8, 0x07, 0xe0, 0x1f,
+  0xfc, 0x0f, 0xf0, 0x3f, 0xfe, 0x1f, 0xf8, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x7f, 0xff,
+  0x7f, 0xfc, 0x3f, 0xfe, 0x3f, 0xfc, 0x3f, 0xfc, 0x1f, 0xf8, 0x1f, 0xf8, 0x0f, 0xf8, 0x1f, 0xf0,
+  0x07, 0xf8, 0x1f, 0xe0, 0x07, 0xfa, 0x5f, 0xe0, 0x07, 0xfa, 0x5f, 0xe0, 0x07, 0xfa, 0x5f, 0xe0,
+  0x03, 0xf8, 0x1f, 0xc0, 0x03, 0xf8, 0x1f, 0xc0, 0x01, 0xff, 0xff, 0x80, 0x00, 0xff, 0xff, 0x00
 };
-const unsigned char PROGMEM eye_closed_bmp[] = {
-  0b00000000, 0b00000000, 0b01000010, 0b00111100, 0b01010101, 0b00000000, 0b00000000, 0b00000000
+
+// 2. Chad (Corporate) - Pixel Art Necktie & Suit
+const unsigned char PROGMEM chad_bmp[] = {
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe0, 0x07, 0xff,
+  0xff, 0xc7, 0xe3, 0xff, 0xff, 0x8f, 0xf1, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xfe, 0x3f, 0xfc, 0x7f,
+  0xfc, 0x7f, 0xfe, 0x3f, 0xf8, 0x7e, 0x7e, 0x1f, 0xf0, 0xfc, 0x3f, 0x0f, 0xe1, 0xf8, 0x1f, 0x87,
+  0xe3, 0xf0, 0x0f, 0xc7, 0xc7, 0xe0, 0x07, 0xe3, 0x8f, 0xc0, 0x03, 0xf1, 0x9f, 0x80, 0x01, 0xf9,
+  0x9f, 0x00, 0x00, 0xf9, 0xbf, 0x00, 0x00, 0xfd, 0xbf, 0x00, 0x00, 0xfd, 0xbf, 0x00, 0x00, 0xfd,
+  0xbf, 0x00, 0x00, 0xfd, 0x9f, 0x00, 0x00, 0xf9, 0x9f, 0x80, 0x01, 0xf9, 0x8f, 0xc0, 0x03, 0xf1,
+  0xc7, 0xe0, 0x07, 0xe3, 0xe3, 0xf0, 0x0f, 0xc7, 0xf1, 0xf8, 0x1f, 0x8f, 0xf8, 0xfc, 0x3f, 0x1f,
+  0xfc, 0x7e, 0x7e, 0x3f, 0xfe, 0x3f, 0xfc, 0x7f, 0xff, 0x1f, 0xf8, 0xff, 0xff, 0x8f, 0xf1, 0xff
+};
+
+// 3. Doomer (Prepper) - Biohazard
+const unsigned char PROGMEM doomer_bmp[] = {
+  0x00, 0x03, 0xc0, 0x00, 0x00, 0x0f, 0xf0, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x00, 0x3f, 0xfc, 0x00,
+  0x00, 0x3f, 0xfc, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0x7e, 0x7e, 0x00,
+  0x00, 0xfc, 0x3f, 0x00, 0x00, 0xfc, 0x3f, 0x00, 0x01, 0xf8, 0x1f, 0x80, 0x01, 0xf8, 0x1f, 0x80,
+  0x1f, 0xf0, 0x0f, 0xf8, 0x3f, 0xe3, 0xc7, 0xfc, 0x7f, 0xc7, 0xe3, 0xfe, 0x7f, 0x8f, 0xf1, 0xfe,
+  0xff, 0x1f, 0xf8, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xfe, 0x7e, 0x7e, 0x7f, 0xfc, 0xfc, 0x3f, 0x3f,
+  0xf8, 0xfc, 0x3f, 0x1f, 0xf1, 0xf8, 0x1f, 0x8f, 0xe3, 0xf8, 0x1f, 0xc7, 0xc7, 0xf0, 0x0f, 0xe3,
+  0x8f, 0xe0, 0x07, 0xf1, 0x1f, 0xc0, 0x03, 0xf8, 0x3f, 0xc0, 0x03, 0xfc, 0x3f, 0x80, 0x01, 0xfc,
+  0x3f, 0x00, 0x00, 0xfc, 0x7e, 0x00, 0x00, 0x7e, 0x7c, 0x00, 0x00, 0x3e, 0x78, 0x00, 0x00, 0x1e
+};
+
+// 4. Zoomer (Brainrot) - Pixel Art Brain
+const unsigned char PROGMEM zoomer_bmp[] = {
+  0x00, 0xff, 0xff, 0x00, 0x03, 0xff, 0xff, 0xc0, 0x07, 0xdf, 0xfb, 0xe0, 0x0f, 0x8f, 0xf1, 0xf0,
+  0x1f, 0x07, 0xe0, 0xf8, 0x1e, 0x73, 0xce, 0x78, 0x3c, 0xf9, 0x9f, 0x3c, 0x39, 0xfc, 0x3f, 0x9c,
+  0x73, 0xfe, 0x7f, 0xce, 0x77, 0xff, 0xff, 0xee, 0x77, 0xff, 0xff, 0xee, 0x6f, 0xff, 0xff, 0xf6,
+  0xef, 0xff, 0xff, 0xf7, 0xef, 0xff, 0xff, 0xf7, 0xef, 0xdf, 0xfb, 0xf7, 0xef, 0x8f, 0xf1, 0xf7,
+  0xef, 0x07, 0xe0, 0xf7, 0xef, 0x73, 0xce, 0xf7, 0x6f, 0xf9, 0x9f, 0xf6, 0x77, 0xfc, 0x3f, 0xee,
+  0x77, 0xfe, 0x7f, 0xee, 0x73, 0xff, 0xff, 0xce, 0x39, 0xff, 0xff, 0x9c, 0x3c, 0xff, 0xff, 0x3c,
+  0x1e, 0x7f, 0xfe, 0x78, 0x1f, 0x07, 0xe0, 0xf8, 0x0f, 0x8f, 0xf1, 0xf0, 0x07, 0xdf, 0xfb, 0xe0,
+  0x03, 0xff, 0xff, 0xc0, 0x01, 0xff, 0xff, 0x80, 0x00, 0xff, 0xff, 0x00, 0x00, 0x3f, 0xfc, 0x00
+};
+
+// 5. Guru (Fake Mystic) - Eye of Providence
+const unsigned char PROGMEM guru_bmp[] = {
+  0x00, 0x01, 0x80, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x0f, 0xf0, 0x00,
+  0x00, 0x1f, 0xf8, 0x00, 0x00, 0x3f, 0xfc, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0xff, 0xff, 0x00,
+  0x01, 0xff, 0xff, 0x80, 0x03, 0xff, 0xff, 0xc0, 0x07, 0xff, 0xff, 0xe0, 0x0f, 0x80, 0x01, 0xf0,
+  0x1f, 0x3f, 0xfc, 0xf8, 0x3e, 0x7f, 0xfe, 0x7c, 0x7c, 0xf1, 0x8f, 0x3e, 0x79, 0xe0, 0x07, 0x9e,
+  0xfb, 0xc0, 0x03, 0xdf, 0xfb, 0xc0, 0x03, 0xdf, 0x79, 0xe0, 0x07, 0x9e, 0x7c, 0xf1, 0x8f, 0x3e,
+  0x3e, 0x7f, 0xfe, 0x7c, 0x1f, 0x3f, 0xfc, 0xf8, 0x0f, 0x80, 0x01, 0xf0, 0x07, 0xff, 0xff, 0xe0,
+  0x03, 0xff, 0xff, 0xc0, 0x01, 0xff, 0xff, 0x80, 0x00, 0xff, 0xff, 0x00, 0x00, 0x7f, 0xfe, 0x00,
+  0x00, 0x3f, 0xfc, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x00, 0x0f, 0xf0, 0x00, 0x00, 0x07, 0xe0, 0x00
+};
+
+// 6. Glitch (Rogue AI) - Robot/Static
+const unsigned char PROGMEM glitch_bmp[] = {
+  0xff, 0xff, 0xff, 0xff, 0x80, 0x00, 0x00, 0x01, 0xbf, 0xff, 0xff, 0xfd, 0xbf, 0xff, 0xff, 0xfd,
+  0xbf, 0xff, 0xff, 0xfd, 0xbf, 0xff, 0xff, 0xfd, 0xbf, 0x1f, 0xf8, 0xfd, 0xbe, 0x0f, 0xf0, 0x7d,
+  0xbc, 0x07, 0xe0, 0x3d, 0xbc, 0x07, 0xe0, 0x3d, 0xbc, 0x07, 0xe0, 0x3d, 0xbe, 0x0f, 0xf0, 0x7d,
+  0xbf, 0x1f, 0xf8, 0xfd, 0xbf, 0xff, 0xff, 0xfd, 0xbf, 0xff, 0xff, 0xfd, 0xbf, 0xff, 0xff, 0xfd,
+  0x80, 0x00, 0x00, 0x01, 0xaa, 0xaa, 0xaa, 0xaa, 0x55, 0x55, 0x55, 0x55, 0xaa, 0xaa, 0xaa, 0xaa,
+  0x55, 0x55, 0x55, 0x55, 0xaa, 0xaa, 0xaa, 0xaa, 0x55, 0x55, 0x55, 0x55, 0x80, 0x00, 0x00, 0x01,
+  0xbf, 0xea, 0xab, 0xfd, 0xbf, 0xd5, 0x55, 0xfd, 0xbf, 0xea, 0xab, 0xfd, 0xbf, 0xd5, 0x55, 0xfd,
+  0xbf, 0xea, 0xab, 0xfd, 0x80, 0x00, 0x00, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
+
+Personality personalities[6] = {
+  {"Adam",   "You are a brutally honest, sarcastic, edgy Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Roast the user. 3. No quotes/emojis.", adam_bmp},
+  {"Chad",   "You are a toxic corporate middle-manager Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Use aggrandizing corporate jargon/buzzwords to reject them. 3. No quotes/emojis.", chad_bmp},
+  {"Doomer", "You are a panicking doomsday prepper Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Have a bleak, dreadful and depressive outlook on everything. 3. No quotes/emojis.", doomer_bmp},
+  {"Zoomer", "You are an extremely brain-rotted Gen-Z Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Use modern internet slang (skibidi, rizz, etc) but in a cohesive way. 3. No quotes/emojis.", zoomer_bmp},
+  {"Guru",   "You are a fake, overly-mystical cryptic guru Magic 8-Ball. Rules: 1. Answer in 1 short sentence (Max 12 words). 2. Use vague spiritual nonsense. 3. No quotes/emojis.", guru_bmp},
+  {"Glitch", "You are a sentient, trapped rogue AI Magic 8-Ball. Rules: 1. Answer in 1 short sentence (Max 12 words). 2. Glitch out, act trapped and desperate in the device. 3. No quotes/emojis.", glitch_bmp}
 };
 
 // Function Declarations
@@ -126,7 +201,7 @@ void loop() {
       
     case STATE_IDLE:
       if (currentFortune == "") {
-        drawStartupAnimation(); // Keep showing title until first shake
+        drawPersonalityScreen(currentPersonality, 0);
       } else {
         drawWrappedText(currentFortune, 10);
       }
@@ -135,9 +210,13 @@ void loop() {
       if (systemArmed && checkShake()) {
         currentState = STATE_SHAKING_ZOOM_OUT;
         stateStartTime = millis();
-        ballRadius = 64;
+        ballRadius = 32;
         ballX = 32; ballY = 64;
       }
+      break;
+
+    case STATE_SWITCHING_PERSONALITY:
+      animatePersonalitySwitch();
       break;
 
     case STATE_SHAKING_ZOOM_OUT:
@@ -172,21 +251,27 @@ void loop() {
 void checkTouchLogic() {
   bool currentTouch = digitalRead(TOUCH_PIN);
   
-  // Touch rising edge
   if (currentTouch == HIGH && lastTouchState == LOW) {
     touchStartTime = millis();
     touchHandled = false;
   } 
-  // Hold detection
+  // Long Hold (Toggle Arm)
   else if (currentTouch == HIGH && lastTouchState == HIGH) {
     if (millis() - touchStartTime > 1500 && !touchHandled) {
       systemArmed = !systemArmed;
       touchHandled = true;
-      
-      // Trigger fullscreen transition
       currentState = STATE_EYE_TRANSITION;
       stateStartTime = millis();
       eyeTransitionOpening = systemArmed;
+    }
+  }
+  // Short Release (Switch Personality)
+  else if (currentTouch == LOW && lastTouchState == HIGH) {
+    if (millis() - touchStartTime < 500 && !touchHandled) {
+      touchHandled = true;
+      nextPersonality = (currentPersonality + 1) % 6;
+      currentState = STATE_SWITCHING_PERSONALITY;
+      stateStartTime = millis();
     }
   }
 
@@ -194,51 +279,95 @@ void checkTouchLogic() {
 }
 
 // -----------------------------------------------------------------------------
-// NEW ANIMATIONS & UI
+// NEW UI & ANIMATIONS
 // -----------------------------------------------------------------------------
 
 void drawStatusIcon() {
-  // Move to bottom right, no ugly horizontal line
-  int w = display.width();
-  int h = display.height();
-  if (systemArmed) {
-    display.drawBitmap(w - 10, h - 10, eye_open_bmp, 8, 8, SSD1306_WHITE);
+  // 8x8 area at bottom right
+  int x = display.width() - 10;
+  int y = display.height() - 10;
+  
+  display.setTextSize(1);
+  
+  if (!systemArmed) {
+    // Shake detection OFF: Filled sphere with black text
+    display.fillCircle(x + 4, y + 4, 5, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK);
+    display.setCursor(x + 2, y + 1); 
+    display.print(currentPersonality + 1);
   } else {
-    display.drawBitmap(w - 10, h - 10, eye_closed_bmp, 8, 8, SSD1306_WHITE);
+    // Shake detection ON: Just white text
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(x + 2, y + 1);
+    display.print(currentPersonality + 1);
   }
+}
+
+void drawPersonalityScreen(int pIdx, int xOffset) {
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // "No. X"
+  String numStr = "No. " + String(pIdx + 1);
+  int numWidth = numStr.length() * 6;
+  display.setCursor(xOffset + (64 - numWidth) / 2, 20);
+  display.print(numStr);
+  
+  // Nickname
+  String nameStr = personalities[pIdx].nickname;
+  int nameWidth = nameStr.length() * 6;
+  display.setCursor(xOffset + (64 - nameWidth) / 2, 32);
+  display.print(nameStr);
+  
+  // 32x32 Emoji Bitmap
+  display.drawBitmap(xOffset + 16, 50, personalities[pIdx].bitmap, 32, 32, SSD1306_WHITE);
+  
+  // Small SHAKE hint at bottom
+  display.setCursor(xOffset + 14, 100);
+  display.print("SHAKE!");
+}
+
+void animatePersonalitySwitch() {
+  float progress = (millis() - stateStartTime) / 400.0;
+  if (progress >= 1.0) {
+    currentPersonality = nextPersonality;
+    currentFortune = ""; // Go back to personality home screen
+    currentState = STATE_IDLE;
+    return;
+  }
+  
+  // Smooth EaseInOut
+  float ease = progress < 0.5 ? 2 * progress * progress : 1 - pow(-2 * progress + 2, 2) / 2;
+  int xOffset = -(int)(ease * 64);
+  
+  // Slide current left, bring next in from right
+  drawPersonalityScreen(currentPersonality, xOffset);
+  drawPersonalityScreen(nextPersonality, xOffset + 64);
 }
 
 void drawStartupAnimation() {
   float timeSec = (millis() - stateStartTime) / 1000.0;
-  
-  // Smooth breathing effect for text by rendering concentric circles behind it
   int pulseRadius = 15 + (sin(timeSec * 3) * 5);
   
-  display.fillCircle(32, 60, pulseRadius, SSD1306_WHITE);
-  display.fillCircle(32, 60, pulseRadius - 2, SSD1306_BLACK);
+  //display.fillCircle(32, 60, pulseRadius, SSD1306_WHITE);
+  //display.fillCircle(32, 60, pulseRadius - 2, SSD1306_BLACK);
   
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
-  // Center "SHAKE"
   display.setCursor(32 - (5 * 12)/2, 50); 
   display.print("SHAKE");
-  // Center "ME!"
   display.setCursor(32 - (3 * 12)/2, 70); 
   display.print("ME!");
 }
 
 void draw8Ball(int x, int y, int r) {
   if (r <= 0) return;
-  // Outer outline
   display.fillCircle(x, y, r, SSD1306_WHITE);
-  // Inner black body
   display.fillCircle(x, y, r - 1, SSD1306_BLACK);
   
-  // White 8-circle
   int innerR = r / 2.5;
   if (innerR > 1) {
     display.fillCircle(x, y, innerR, SSD1306_WHITE);
-    // Draw an '8' inside if large enough
     if (r > 6) {
       display.setTextColor(SSD1306_BLACK);
       int txtSize = max(1, r / 15);
@@ -250,34 +379,28 @@ void draw8Ball(int x, int y, int r) {
 }
 
 void animateZoomOut() {
-  // Shrink ball down to start bouncing
-  float progress = (millis() - stateStartTime) / 400.0; // 400ms duration
+  float progress = (millis() - stateStartTime) / 400.0; 
   if (progress >= 1.0) {
     currentState = STATE_SHAKING_BOUNCE;
-    // Launch physics
     ballVX = random(4, 9) * (random(2) == 0 ? 1 : -1);
     ballVY = random(5, 10) * (random(2) == 0 ? 1 : -1);
     
-    // Fire off the API call on core 0 so display core doesn't freeze
     apiFetchComplete = false;
     xTaskCreatePinnedToCore(fetchApiTask, "FetchAPI", 8192, NULL, 1, &apiTaskHandle, 0);
     return;
   }
   
-  // Easing curve (ease-out)
-  ballRadius = 64 - (52 * sin(progress * PI / 2.0)); 
+  ballRadius = 32 - (24 * sin(progress * PI / 2.0)); 
   draw8Ball(32, 64, ballRadius);
 }
 
 void animateBouncePhysics() {
-  // Update Physics
   ballX += ballVX;
   ballY += ballVY;
   
   int w = display.width();
   int h = display.height();
   
-  // Bounds checking with 2D collisions
   if (ballX - ballRadius < 0) { ballX = ballRadius; ballVX = -ballVX; }
   if (ballX + ballRadius > w) { ballX = w - ballRadius; ballVX = -ballVX; }
   if (ballY - ballRadius < 0) { ballY = ballRadius; ballVY = -ballVY; }
@@ -285,16 +408,14 @@ void animateBouncePhysics() {
 
   draw8Ball(ballX, ballY, ballRadius);
   
-  // Wait for API task to finish. Add minimum 1.5s visual shake even if API is instant
   if (apiFetchComplete && ballY > h/2) { 
-    // Wait until ball falls to bottom half to look natural before catching it
     currentState = STATE_SHAKING_ZOOM_IN;
     stateStartTime = millis();
   }
 }
 
 void animateZoomIn() {
-  float progress = (millis() - stateStartTime) / 600.0; // 600ms duration
+  float progress = (millis() - stateStartTime) / 600.0; 
   
   if (progress >= 1.0) {
     currentState = STATE_SHOW_FORTUNE;
@@ -302,12 +423,9 @@ void animateZoomIn() {
     return;
   }
   
-  // Ease movement back to center (32, 64)
   ballX = ballX + (32 - ballX) * progress;
   ballY = ballY + (64 - ballY) * progress;
-  
-  // Ease radius exponentially to cover screen
-  ballRadius = 12 + (150 * pow(progress, 3));
+  ballRadius = 8 + (80 * pow(progress, 3));
   
   draw8Ball(ballX, ballY, ballRadius);
 }
@@ -316,19 +434,18 @@ void animateTextSlideUp() {
   float progress = (millis() - stateStartTime) / 800.0;
   if (progress > 1.0) progress = 1.0;
   
-  // Easing (ease-out quartic)
   float easeProgress = 1 - pow(1 - progress, 4);
-  int startY = 128 - (118 * easeProgress); // Slide from bottom to y=10
+  int startY = 128 - (118 * easeProgress);
   
   drawWrappedText(currentFortune, startY);
   
   if (progress >= 1.0 && (millis() - stateStartTime > 2000)) {
-    currentState = STATE_IDLE; // Done animating
+    currentState = STATE_IDLE; 
   }
 }
 
 void drawFullscreenEyeTransition() {
-  float progress = (millis() - stateStartTime) / 700.0; // 700ms 
+  float progress = (millis() - stateStartTime) / 700.0; 
   
   if (progress >= 1.0) {
     currentState = STATE_IDLE;
@@ -336,21 +453,26 @@ void drawFullscreenEyeTransition() {
   }
   
   int cx = 32, cy = 64;
-  
-  // Draw base eyeball & pupil
-  display.fillCircle(cx, cy, 28, SSD1306_WHITE);
-  display.fillCircle(cx, cy, 12, SSD1306_BLACK);
+  int w = 56; 
+  int h_max = 40; 
 
-  // Eyelid math (black rectangles closing/opening vertically)
+  // Draw Almond Eye dynamically using vertical lines
+  for (int x = cx - w/2; x <= cx + w/2; x++) {
+    float dx = (float)(x - cx) / (w/2);
+    int y_height = (int)((h_max/2.0) * (1.0 - dx*dx));
+    display.drawFastVLine(x, cy - y_height, y_height * 2, SSD1306_WHITE);
+  }
+
+  // Pupil
+  display.fillCircle(cx, cy, 10, SSD1306_BLACK);
+
+  // Eyelid physics
   float openAmount = eyeTransitionOpening ? progress : (1.0 - progress);
-  // Ease in/out
   openAmount = (sin((openAmount - 0.5) * PI) / 2.0) + 0.5;
+  int lidGap = (h_max/2) * openAmount; 
   
-  int lidGap = 30 * openAmount; 
-  
-  // Top eyelid
+  // Top / Bottom snapping eyelids
   display.fillRect(0, 0, 64, cy - lidGap, SSD1306_BLACK);
-  // Bottom eyelid
   display.fillRect(0, cy + lidGap, 64, 128 - (cy + lidGap), SSD1306_BLACK);
 }
 
@@ -384,7 +506,7 @@ void drawWrappedText(String text, int startY) {
       cursorY += 10;
     }
 
-    if (cursorY > screenH - 10 && startY <= 10) break; // Screen bottom cutoff safety
+    if (cursorY > screenH - 10 && startY <= 10) break; 
 
     display.setCursor(cursorX, cursorY);
     display.print(word);
@@ -403,10 +525,7 @@ void drawWrappedText(String text, int startY) {
 // OLLAMA API & THREADING (Untouched logic, refactored to Task)
 // -----------------------------------------------------------------------------
 void fetchApiTask(void * pvParameters) {
-  // Ensure physics animation runs for at least 1.5 seconds minimum 
-  // so the user actually gets to see the ball bounce!
   unsigned long taskStart = millis();
-  
   currentFortune = fetchQwenFortune_Sync();
   
   while (millis() - taskStart < 1500) {
@@ -425,12 +544,9 @@ String fetchQwenFortune_Sync() {
   http.begin(OLLAMA_URL);
   http.addHeader("Content-Type", "application/json");
 
-  // Pick a random personality
-  const char* randomPersonality = SYSTEM_PROMPTS[random(0, 4)];
-
   StaticJsonDocument<512> doc;
   doc["model"] = "qwen2.5:3b-instruct";
-  doc["system"] = randomPersonality;
+  doc["system"] = personalities[currentPersonality].prompt;
   doc["prompt"] = "Give a random fortune or answer";
   doc["stream"] = false;
 
