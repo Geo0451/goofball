@@ -68,10 +68,13 @@ void setup() {
   pinMode(TOUCH_PIN, INPUT);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    while (true); // OLED failure freeze
+    while (true); // Freeze on OLED failure
   }
 
-  // Explicit Station Mode for hotspot compatibility
+  // Set rotation to match your breadboard orientation:
+  // 0 = Landscape, 1 = Portrait (90°), 2 = Inverted Landscape, 3 = Portrait (270°)
+  display.setRotation(1); 
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
@@ -111,26 +114,26 @@ void loop() {
 // DISPLAY & GRAPHICS FUNCTIONS
 // -----------------------------------------------------------------------------
 
-// Draw top status bar with Eye Icon
 void drawStatusBar() {
-  display.drawLine(0, 9, 127, 9, SSD1306_WHITE); 
+  int w = display.width();
+  display.drawLine(0, 9, w - 1, 9, SSD1306_WHITE); 
 
   if (systemArmed) {
-    display.drawBitmap(118, 0, eye_open_bmp, 8, 8, SSD1306_WHITE);
+    display.drawBitmap(w - 10, 0, eye_open_bmp, 8, 8, SSD1306_WHITE);
   } else {
-    display.drawBitmap(118, 0, eye_closed_bmp, 8, 8, SSD1306_WHITE);
+    display.drawBitmap(w - 10, 0, eye_closed_bmp, 8, 8, SSD1306_WHITE);
   }
 }
 
-// Word-wrapping renderer with quote stripping & non-ASCII filtering
 void drawWrappedText(String text, int startY) {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  display.setTextWrap(false); // Handle word wrapping manually
 
-  // Clean LLM formatting quirks
+  // Clean LLM formatting artifacts
   text.replace("\"", "");
 
-  // Filter out non-ASCII characters to stop scrambled graphics
+  // Sanitize to printable ASCII
   String cleanText = "";
   for (int i = 0; i < text.length(); i++) {
     char c = text.charAt(i);
@@ -139,32 +142,34 @@ void drawWrappedText(String text, int startY) {
 
   int cursorX = 0;
   int cursorY = startY;
-  int lineChars = 0;
   int i = 0;
+  int screenW = display.width();
+  int screenH = display.height();
 
   while (i < cleanText.length()) {
     int nextSpace = cleanText.indexOf(' ', i);
     if (nextSpace == -1) nextSpace = cleanText.length();
 
     String word = cleanText.substring(i, nextSpace);
+    int wordPixelWidth = word.length() * 6; // 6 pixels per character at size 1
 
-    // Max 21 chars per line for size 1 font on 128px canvas
-    if (lineChars + word.length() > 21) {
+    // Wrap to next line if word exceeds width
+    if (cursorX + wordPixelWidth > screenW) {
       cursorX = 0;
       cursorY += 10;
-      lineChars = 0;
     }
 
-    if (cursorY > 54) break; // Canvas bottom bound check
+    if (cursorY > screenH - 10) break; // Screen bottom boundary check
 
-    display.setCursor(cursorX * 6, cursorY);
+    display.setCursor(cursorX, cursorY);
     display.print(word);
-    lineChars += word.length();
+    cursorX += wordPixelWidth; // Shift cursor position right by word width
 
     if (nextSpace < cleanText.length()) {
       display.print(" ");
-      lineChars++;
+      cursorX += 6; // Shift cursor position right by space width
     }
+
     i = nextSpace + 1;
   }
 }
@@ -178,15 +183,18 @@ void renderScreen() {
 
 void playShakingAnimation() {
   unsigned long startTime = millis();
+  int w = display.width();
+  int h = display.height();
+
   while (millis() - startTime < 1200) {
     display.clearDisplay();
     drawStatusBar();
 
-    int ballX = random(22, 106);
-    int ballY = random(22, 44);
+    int ballX = random(16, w - 16);
+    int ballY = random(20, h - 16);
 
-    display.drawCircle(ballX, ballY, 16, SSD1306_WHITE);
-    display.fillCircle(ballX, ballY, 7, SSD1306_WHITE);
+    display.drawCircle(ballX, ballY, 14, SSD1306_WHITE);
+    display.fillCircle(ballX, ballY, 6, SSD1306_WHITE);
     display.setTextColor(SSD1306_BLACK);
     display.setCursor(ballX - 2, ballY - 3);
     display.print("8");
@@ -203,11 +211,10 @@ String fetchQwenFortune() {
   if (WiFi.status() != WL_CONNECTED) return "WiFi Offline!";
 
   HTTPClient http;
-  http.setTimeout(15000); // 15 sec generation threshold
+  http.setTimeout(15000);
   http.begin(OLLAMA_URL);
   http.addHeader("Content-Type", "application/json");
 
-  // Build JSON Payload
   StaticJsonDocument<512> doc;
   doc["model"] = "qwen2.5:3b-instruct";
   doc["system"] = "You are a brutally honest, sarcastic, edgy Magic 8-Ball. Rules: Answer in 1 short sentence ONLY (Maximum 10 words). Be witty, spicy, unhinged, or roast-heavy. NEVER add quotes or emojis.";
@@ -222,7 +229,6 @@ String fetchQwenFortune() {
   String jsonPayload;
   serializeJson(doc, jsonPayload);
 
-  // Single HTTP POST call
   int httpCode = http.POST(jsonPayload);
 
   Serial.print("Ollama HTTP Code: ");
@@ -241,7 +247,7 @@ String fetchQwenFortune() {
   }
 
   http.end();
-  delay(100); // I2C buffer settle delay
+  delay(100);
   return responseText;
 }
 
@@ -253,7 +259,7 @@ void checkTouchToggle() {
   if (currentTouch == HIGH && lastTouchState == LOW) {
     systemArmed = !systemArmed;
     renderScreen();
-    delay(300); // Touch debouncing
+    delay(300);
   }
   lastTouchState = currentTouch;
 }
