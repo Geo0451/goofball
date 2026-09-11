@@ -186,8 +186,8 @@ _Explain the final build_
 
 # Video
 
-[Add your demo video link here]
-_Explain what the video demonstrates_
+<video src="./demo1.mp4" controls width="100%"></video>
+
 
 # Additional Demos
 
