@@ -186,8 +186,7 @@ _Explain the final build_
 
 # Video
 
-<video src="./demo1.mp4" controls width="100%"></video>
-
+[![YouTube Demo](https://img.youtube.com/vi/U24JJsOnAx4/0.jpg)](https://youtube.com/shorts/U24JJsOnAx4)
 
 # Additional Demos
 
