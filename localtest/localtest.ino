@@ -217,14 +217,14 @@ String fetchQwenFortune() {
 
   StaticJsonDocument<512> doc;
   doc["model"] = "qwen2.5:3b-instruct";
-  doc["system"] = "You are a brutally honest, sarcastic, edgy Magic 8-Ball. Rules: Answer in 1 short sentence ONLY (Maximum 10 words). Be witty, spicy, unhinged, or roast-heavy. NEVER add quotes or emojis.";
-  doc["prompt"] = "Give a random fortune or answer.";
+  doc["system"] = "You are a brutally honest, sarcastic, edgy Magic 8-Ball. Rules: 1. Answer in EXACTLY 1 short sentence (Max 12 words). 2. Roast the user or give a cursed fortune or a profound quote. 3. Apostrophes are fine, but NEVER use double quotes or emojis. 4. Be witty and unhinged.";
+  doc["prompt"] = "Give a random fortune or answer";
   doc["stream"] = false;
 
   JsonObject options = doc.createNestedObject("options");
-  options["temperature"] = 0.9;
+  options["temperature"] = 0.90;
   options["repeat_penalty"] = 1.18;
-  options["num_predict"] = 25;
+  options["num_predict"] = 35;
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
