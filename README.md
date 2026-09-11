@@ -232,7 +232,7 @@ _Explain the final build_
 
 # Video
 
-[Videoooooo]
+[![Final Demo](https://img.youtube.com/vi/lXghuZ_7DCk/0.jpg)](https://www.youtube.com/watch?v=lXghuZ_7DCk)
 
 # Additional Demos
 
@@ -240,8 +240,8 @@ _Explain the final build_
 
 ## Team Contributions
 
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
+- Geo K J: Software Development, Testing & Iteration, Code Optimization and LLM setup.
+- Harikrishna O R: Hardware Setup, Circuit Configuration and Design, and Component testing
 
 ---
 
