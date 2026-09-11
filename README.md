@@ -186,11 +186,11 @@ _Explain the final build_
 
 # Video
 
-[![YouTube Demo](https://img.youtube.com/vi/U24JJsOnAx4/0.jpg)](https://youtube.com/shorts/U24JJsOnAx4)
+[Videoooooo]
 
 # Additional Demos
 
-[Add any extra demo materials/links]
+[![YouTube Demo](https://img.youtube.com/vi/U24JJsOnAx4/0.jpg)](https://youtube.com/shorts/U24JJsOnAx4)
 
 ## Team Contributions
 
