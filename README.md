@@ -225,8 +225,8 @@ ESP32-WROOM Dev Kit
 
 - **Step 5: API & Parsing Debugging** — Resolving JSON parsing, baud rate mismatches, and character encoding issues from the LLM endpoint.
 
-![Final](Add photo of final product here)
-_Explain the final build_
+![Final](./screenshots/final.jpeg)
+_Final Form_
 
 ### Project Demo
 
