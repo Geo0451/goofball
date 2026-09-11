@@ -56,15 +56,15 @@ The ESP32 Magic 8-Ball combines edge-sensor event handling, local network API co
 
 1. **Arming State Machine (TTP223):**
    - The capacitive touch sensor acts as a toggle switch on GPIO 27.
-   - The device status is drawn to the screen buffer via custom 8x8 PROGMEM bitmaps in the status bar (Open Eye = Armed, Closed Eye = Disarmed).
+   - The device status is drawn to the screen buffer via custom PROGMEM bitmaps in the status bar (Open Eye = Armed, Closed Eye = Disarmed).
 
 2. **Motion Detection (MPU6050):**
    - The accelerometer streams raw X, Y, and Z axis readings over I2C.
    - Combined vector acceleration is calculated: $\text{G} = \sqrt{x^2 + y^2 + z^2}$.
-   - If the system is **Armed** and acceleration exceeds `1.7G`, the shake sequence triggers.
+   - If the system is **Armed** and acceleration exceeds `2.0G`, the shake sequence triggers.
 
 3. **Loading State & API Payload:**
-   - A 1.2-second randomized 8-ball physics animation plays on screen to cover network latency.
+   - A randomized 8-ball physics animation plays on screen to cover network and LLM generation latency.
    - An HTTP POST request containing system prompt rules, context length parameters, and `stream: false` is serialized via `ArduinoJson` and sent to the local Ollama backend over Wi-Fi.
 
 4. **Display Engine & String Sanitization:**
