@@ -9,7 +9,7 @@
 ### Team Members
 
 - Member 1: Geo K J - Sahrdaya College of Engineering and Technology
-- Member 2: Harikrishna O R- Sahrdaya College of Engineering and Technology
+- Member 2: Harikrishna O R - Sahrdaya College of Engineering and Technology
 
 ### Project Description
 
