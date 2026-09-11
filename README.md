@@ -21,7 +21,8 @@ The lack of certainty in life.
 
 ### The Solution (that nobody asked for)
 
-Ai slop code
+![example](./example.jpg)
+
 
 ## Technical Details
 
